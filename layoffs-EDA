@@ -1,0 +1,139 @@
+-- Exploratory Data Analysis
+
+-- Displaying all records in the layoff_staging2 table for inspection.
+SELECT *
+FROM layoff_staging2;
+
+-- Finding the maximum values for total layoffs and percentage layoffs.
+SELECT MAX(total_laid_off), MAX(percentage_laid_off)
+FROM layoff_staging2;
+
+-- Filtering for records where the percentage of layoffs is 100% and sorting by the highest total layoffs.
+SELECT *
+FROM layoff_staging2
+WHERE percentage_laid_off = 1
+ORDER BY total_laid_off DESC;
+
+-- Similar to the previous query but sorting by funds raised.
+SELECT *
+FROM layoff_staging2
+WHERE percentage_laid_off = 1
+ORDER BY funds_raised_millions DESC;
+
+-- Grouping the data by company and summing the total layoffs to see which companies had the most layoffs.
+SELECT company, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company
+ORDER BY SUM(total_laid_off) DESC;
+
+-- Displaying the minimum and maximum date in the dataset to understand the time range.
+SELECT MIN(`date`), MAX(`date`)
+FROM layoff_staging2;
+
+-- Grouping by industry to observe which industries had the most layoffs.
+SELECT industry, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY industry
+ORDER BY SUM(total_laid_off) DESC;
+
+-- Fetching total layoffs grouped by country to observe global trends.
+SELECT country, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY country
+ORDER BY SUM(total_laid_off) DESC;
+
+-- Grouping by date to see layoffs per day.
+SELECT `date`, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY `date`
+ORDER BY 1 DESC;
+
+-- Grouping by year to see annual layoffs.
+SELECT YEAR(`date`), SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY YEAR(`date`)
+ORDER BY 1 DESC;
+
+-- Grouping by stage (could refer to the phase of the layoff) to see which stage had the most layoffs.
+SELECT stage, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY stage
+ORDER BY 1 DESC;
+
+-- Repeating the same query as above but ordering by the sum of layoffs in descending order.
+SELECT stage, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY stage
+ORDER BY 2 DESC;
+
+-- Grouping by month (extracted from date) to see monthly layoffs.
+SELECT SUBSTRING(`date`,6,2) AS `MONTH`, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY `MONTH`;
+
+-- Grouping by year-month and sorting to see monthly trends.
+SELECT SUBSTRING(`date`,1,7) AS `MONTH`, SUM(total_laid_off)
+FROM layoff_staging2
+WHERE SUBSTRING(`date`,1,7) IS NOT NULL
+GROUP BY `MONTH`
+ORDER BY 1 ASC;
+
+-- Creating a rolling total for layoffs by month.
+WITH ROLLING_TOTAL AS
+(
+SELECT SUBSTRING(`date`,1,7) AS `MONTH`, SUM(total_laid_off) AS total_off
+FROM layoff_staging2
+WHERE SUBSTRING(`date`,1,7) IS NOT NULL
+GROUP BY `MONTH`
+ORDER BY 1 ASC
+)
+SELECT `MONTH`, total_off
+,SUM(total_off) OVER(ORDER BY `MONTH`) AS rolling_total
+FROM ROLLING_TOTAL;
+
+-- Grouping by company and summing layoffs, similar to earlier queries but not ordered by total layoffs.
+SELECT company, SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company
+ORDER BY SUM(total_laid_off) DESC;
+
+-- Grouping by company and year to see yearly layoffs per company.
+SELECT company,YEAR(`date`), SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company,YEAR(`date`)
+ORDER BY company;
+
+-- Sorting the previous result by the total layoffs in descending order to highlight companies with the most layoffs.
+SELECT company,YEAR(`date`), SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company,YEAR(`date`)
+ORDER BY 3 DESC;
+
+-- Creating a company-year table with detailed rankings.
+WITH COMPANY_YEAR AS
+(
+SELECT company,YEAR(`date`), SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company,YEAR(`date`)
+ORDER BY 3 DESC
+)
+SELECT *
+FROM COMPANY_YEAR;
+
+-- Creating a ranking of companies for each year based on total layoffs.
+WITH COMPANY_YEAR (company, years , total_laid_off) AS
+(
+SELECT company,YEAR(`date`), SUM(total_laid_off)
+FROM layoff_staging2
+GROUP BY company,YEAR(`date`)
+ORDER BY 3 DESC
+), COMPANY_YEAR_RANK AS
+(
+SELECT *,
+DENSE_RANK() OVER(PARTITION BY years ORDER BY total_laid_off DESC) AS RANKING
+FROM COMPANY_YEAR
+WHERE years IS NOT NULL
+)
+SELECT *
+FROM COMPANY_YEAR_RANK
+WHERE RANKING <= 5;
